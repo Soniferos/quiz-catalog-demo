@@ -37,6 +37,7 @@ import {
   profiles,
   project,
   properties,
+  rateDate,
 } from "./config.mjs";
 import {
   buildFunnel,
@@ -63,6 +64,10 @@ const today = () => {
 };
 let activeRates = demoRates;
 let activeRateNote = "Google Finance · загрузка курса…";
+let activeRateDate = rateDate;
+let activeRatesAreLive = false;
+const rateBasis = () =>
+  `${activeRatesAreLive ? "Курс Google Finance" : "Демо-курс"} на ${activeRateDate} · исходная валюта USD · не банковский курс`;
 const money = (n, currency = "USD") =>
   new Intl.NumberFormat("ru-RU", {
     style: "currency",
@@ -272,6 +277,8 @@ export default function App() {
       .then((payload) => {
         if (!active || !["USD", "THB", "RUB"].every((c) => Number.isFinite(payload.rates?.[c]) && payload.rates[c] > 0)) return;
         activeRates = payload.rates;
+        activeRatesAreLive = true;
+        activeRateDate = new Date(payload.updatedAt).toLocaleDateString("ru-RU");
         activeRateNote = `Google Finance · ${new Date(payload.updatedAt).toLocaleTimeString(
           "ru-RU",
           { hour: "2-digit", minute: "2-digit" },
@@ -280,6 +287,8 @@ export default function App() {
       })
       .catch(() => {
         if (!active) return;
+        activeRatesAreLive = false;
+        activeRateDate = rateDate;
         activeRateNote = "Google Finance недоступен · демо-курс";
         refreshRates((n) => n + 1);
       });
@@ -1616,7 +1625,7 @@ function Catalog({
       )}
       <p className="rate-note">
         {currency !== "USD"
-          ? `Демо-курс на ${rateDate} · исходная валюта USD · не банковский курс`
+          ? rateBasis()
           : "Условные цены в USD"}
         {mode === "rental" && " · возвратный депозит отдельно"}
       </p>
@@ -1836,7 +1845,7 @@ function PropertyPage({
       </div>
       <p className="rate-note">
         {currency !== "USD"
-          ? `Демо-курс ${rateDate}, исходная валюта USD.`
+          ? rateBasis()
           : "Цены демонстрационные, USD."}
       </p>
       <div className="mobile-contact bottom-action">
