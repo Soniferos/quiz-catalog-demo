@@ -552,7 +552,7 @@ p {
   background-color: #17372d;
   background-position: center;
   background-size: cover;
-  filter: blur(6px) brightness(0.62);
+  filter: blur(4px) brightness(0.62);
   transform: scale(1.08);
 }
 .teaser-item > svg {
