@@ -65,6 +65,106 @@ export function newSession() {
   return id;
 }
 export function safeSource() {
-  const source = new URLSearchParams(location.search).get("utm_source");
-  return ["yandex", "google", "telegram"].includes(source) ? source : "direct";
+  return readAttribution().source;
+}
+
+const utmKeys = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_term",
+  "utm_content",
+  "utm_id",
+  "utm_source_platform",
+  "utm_creative_format",
+  "utm_marketing_tactic",
+];
+const clickIdKeys = [
+  "gclid",
+  "gbraid",
+  "wbraid",
+  "dclid",
+  "gad_source",
+  "yclid",
+  "ymclid",
+];
+
+function cookieValue(name) {
+  const part = document.cookie
+    .split(";")
+    .map((value) => value.trim())
+    .find((value) => value.startsWith(`${name}=`));
+  if (!part) return "";
+  try {
+    return decodeURIComponent(part.slice(name.length + 1));
+  } catch {
+    return "";
+  }
+}
+
+function boundedValue(value) {
+  return typeof value === "string" && value.length <= 300 ? value : "";
+}
+
+export function readAttribution() {
+  const params = new URLSearchParams(location.search);
+  const utm = Object.fromEntries(
+    utmKeys
+      .map((key) => [key, boundedValue(params.get(key) || "")])
+      .filter(([, value]) => value),
+  );
+  const clickIds = Object.fromEntries(
+    clickIdKeys
+      .map((key) => [key, boundedValue(params.get(key) || "")])
+      .filter(([, value]) => value),
+  );
+  let referrer = "";
+  try {
+    referrer = document.referrer ? new URL(document.referrer).hostname : "";
+  } catch {
+    referrer = "";
+  }
+  const rawSource = (utm.utm_source || "").toLowerCase();
+  const source = /yandex|яндекс/.test(rawSource)
+    ? "yandex"
+    : /google/.test(rawSource)
+      ? "google"
+      : /telegram|t\.me/.test(rawSource)
+        ? "telegram"
+        : clickIds.yclid || clickIds.ymclid
+          ? "yandex"
+          : clickIds.gclid || clickIds.gbraid || clickIds.wbraid || clickIds.dclid
+            ? "google"
+        : /yandex|ya\.ru/.test(referrer)
+          ? "yandex"
+          : /google/.test(referrer)
+            ? "google"
+            : referrer
+              ? "other"
+              : "direct";
+  const gaCookie = cookieValue("_ga");
+  const yandexClientId = cookieValue("_ym_uid");
+  const clientIds = {
+    ...(gaCookie ? { googleAnalytics: gaCookie } : {}),
+    ...(yandexClientId ? { yandexMetrica: yandexClientId } : {}),
+  };
+  return {
+    source,
+    sourceLabel:
+      source === "google"
+        ? "Google"
+        : source === "yandex"
+          ? "Яндекс"
+          : source === "telegram"
+            ? "Telegram"
+            : source === "direct"
+              ? "Прямой вход"
+              : "Другой источник",
+    capturedAt: Date.now(),
+    landingPage: `${location.pathname}${location.hash}`,
+    referrer,
+    utm,
+    clickIds,
+    clientIds,
+  };
 }

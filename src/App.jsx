@@ -55,7 +55,13 @@ import {
   selectionSignature,
   tripLength,
 } from "./rental.mjs";
-import { getSession, readStore, safeSource, saveStore } from "./store.mjs";
+import {
+  getSession,
+  readAttribution,
+  readStore,
+  safeSource,
+  saveStore,
+} from "./store.mjs";
 import "./theme.css";
 
 const today = () => {
@@ -75,6 +81,18 @@ const money = (n, currency = "USD") =>
     maximumFractionDigits: 0,
   }).format(Math.ceil(n * activeRates[currency]));
 const pct = (n) => (n === null ? "—" : `${Math.round(n * 1000) / 10}%`);
+const formatLeadTime = (timestamp, timezone) => {
+  if (!timestamp) return "Не указано";
+  try {
+    return new Intl.DateTimeFormat("ru-RU", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      ...(timezone ? { timeZone: timezone } : {}),
+    }).format(timestamp);
+  } catch {
+    return new Date(timestamp).toLocaleString("ru-RU");
+  }
+};
 const beds = (n) => `${n} ${n === 1 ? "спальня" : "спальни"}`;
 const defaultFilters = (a) => ({
   expanded: false,
@@ -221,6 +239,7 @@ export default function App() {
   const [, refreshRates] = useState(0);
   const [request, setRequest] = useState(null);
   const [toast, setToast] = useState("");
+  const [attribution] = useState(readAttribution);
   const mode = route.mode;
   const profile = preview || store.profiles[mode];
   const answers = profile.answers;
@@ -428,6 +447,7 @@ export default function App() {
     requestedDate = "",
     time = "",
     contactChecks,
+    visitor,
   ) {
     if (!preview)
       setStore((s) => ({
@@ -443,6 +463,15 @@ export default function App() {
           source: dataset.source,
           channel,
           ...(contactChecks ? { contactChecks } : {}),
+          ...(visitor || {}),
+          attribution,
+          technical: {
+            device: dataset.device,
+            timezone: visitor?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+            language: navigator.language || "",
+            userAgent: navigator.userAgent || "",
+            screen: `${window.screen.width}×${window.screen.height}`,
+          },
           requestedDate,
           time,
           createdAt: Date.now(),
@@ -451,13 +480,14 @@ export default function App() {
         }),
       }));
   }
-  function unlock(channel, checks, contactType = "phone") {
+  function unlock(channel, checks, contactType = "phone", visitor) {
     saveLead(
       channel,
       matched.slice(0, 3).map((p) => p.id),
       "",
       "",
       { ...checks, contactType },
+      visitor,
     );
     updateProfile((p) => ({
       ...p,
@@ -751,7 +781,7 @@ export default function App() {
               <ContactForm
                 kind="unlock"
                 mode={mode}
-                onSubmit={({ channel, checks, contactType }) => unlock(channel, checks, contactType)}
+                onSubmit={({ channel, checks, contactType, visitor }) => unlock(channel, checks, contactType, visitor)}
               />
             </>
           )}
@@ -972,6 +1002,7 @@ function ContactForm({ kind, mode, onSubmit }) {
   const publicDemo = import.meta.env.MODE === "public-demo";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
   const [channel, setChannel] = useState("WhatsApp");
   const [contactType, setContactType] = useState("phone");
   const [consent, setConsent] = useState(false);
@@ -1010,6 +1041,13 @@ function ContactForm({ kind, mode, onSubmit }) {
     const validation = phoneBased ? validatePhone(phone) : { valid: true, normalized: null };
     if (!validation.valid) return setError(validation.message);
     const destination = phone.trim();
+    const visitor = {
+      name: name.trim(),
+      contact: phoneBased ? validation.normalized : destination,
+      contactType,
+      city: city.trim(),
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+    };
     if (contactType === "telegram_username" && !/^@?[A-Za-z0-9_]{5,32}$/.test(destination))
       return setError("Укажите логин Telegram: от 5 символов, латиница, цифры или _.");
     if (contactType === "max_url") {
@@ -1024,6 +1062,7 @@ function ContactForm({ kind, mode, onSubmit }) {
         contactType,
         date,
         time,
+        visitor,
         checks: {
           phoneStatus: phoneBased ? "valid" : "not_applicable",
           whatsappStatus: "unknown",
@@ -1037,7 +1076,7 @@ function ContactForm({ kind, mode, onSubmit }) {
       return;
     }
     if (!phoneBased) {
-      onSubmit({ channel, contactType, date, time, checks: { phoneStatus: "not_applicable", whatsappStatus: "not_applicable", provider: null, checkedAt: null } });
+      onSubmit({ channel, contactType, date, time, visitor, checks: { phoneStatus: "not_applicable", whatsappStatus: "not_applicable", provider: null, checkedAt: null } });
       setName(""); setPhone("");
       return;
     }
@@ -1107,7 +1146,7 @@ function ContactForm({ kind, mode, onSubmit }) {
         provider: lookup.provider || null,
         checkedAt: lookup.checkedAt || null,
       };
-      onSubmit({ channel, contactType, date, time, checks });
+      onSubmit({ channel, contactType, date, time, visitor, checks });
       setName("");
       setPhone("");
     } catch {
@@ -1126,8 +1165,8 @@ function ContactForm({ kind, mode, onSubmit }) {
           <ShieldCheck size={17} />
           <span>
             {capabilities?.whatsappEnabled
-              ? "Демокаталог. Контакты не сохраняются, заявки менеджеру не отправляются. Проверка WhatsApp передаёт номер в WAHA только с отдельного разрешения."
-              : "Тестовые данные: имя «Демо», номер +1 202 555 0123. Номер проверяется локально и не передаётся внешним сервисам. Контакты не сохраняются."}
+              ? "Демокаталог. Имя и контакт сохраняются только в браузере для теста и не отправляются менеджеру. Проверка WhatsApp передаёт номер в WAHA только с отдельного разрешения."
+              : "Демо: имя и контакт сохраняются только в этом браузере для теста. Номер проверяется локально; менеджеру данные не отправляются."}
           </span>
         </div>
         <label className="input-label">
@@ -1141,6 +1180,20 @@ function ContactForm({ kind, mode, onSubmit }) {
               maxLength={60}
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+        </label>
+        <label className="input-label">
+          ГОРОД
+          <div className="input-with-icon">
+            <MapPin />
+            <input
+              aria-label="Город"
+              autoComplete="address-level2"
+              placeholder="Например, Бангкок"
+              maxLength={80}
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
             />
           </div>
         </label>
@@ -1212,7 +1265,7 @@ function ContactForm({ kind, mode, onSubmit }) {
             onChange={(e) => setConsent(e.target.checked)}
           />
           <span>
-            Понимаю, что это демо. Реальной заявки или брони не будет.
+            Понимаю, что это демо: имя и контакт сохранятся в браузере для теста, но не будут отправлены менеджеру.
           </span>
         </label>
         {error && (
@@ -1983,6 +2036,92 @@ function Admin({ mode, store, setStore, onPreview, toast }) {
       (!device || e.device === device) &&
       (!since || e.at >= since),
   );
+  function addSampleLeads() {
+    const now = Date.now();
+    const samples = [
+      {
+        source: "yandex",
+        sourceLabel: "Яндекс Директ",
+        name: "Тестовая заявка · Яндекс",
+        city: "Москва",
+        timezone: "Europe/Moscow",
+        contact: "+12025550123",
+        utm: {
+          utm_source: "yandex",
+          utm_medium: "cpc",
+          utm_campaign: "demo_search_phuket",
+          utm_term: "квартира на Пхукете",
+          utm_content: "объявление_1",
+          utm_id: "demo-yandex-campaign",
+        },
+        clickIds: { yclid: "DEMO-YCLID-123456789" },
+        clientIds: { yandexMetrica: "DEMO-YM-CLIENT-987654321" },
+        device: "mobile",
+        screen: "390×844",
+      },
+      {
+        source: "google",
+        sourceLabel: "Google Ads",
+        name: "Тестовая заявка · Google",
+        city: "Бангкок",
+        timezone: "Asia/Bangkok",
+        contact: "+12025550124",
+        utm: {
+          utm_source: "google",
+          utm_medium: "cpc",
+          utm_campaign: "demo_search_phuket",
+          utm_term: "phuket property",
+          utm_content: "responsive_search_ad",
+          utm_id: "demo-google-campaign",
+        },
+        clickIds: {
+          gclid: "DEMO-GCLID-123456789",
+          gbraid: "DEMO-GBRAID-987654321",
+        },
+        clientIds: { googleAnalytics: "DEMO-GA-CLIENT-1234.5678" },
+        device: "desktop",
+        screen: "1440×900",
+      },
+    ].map((sample) => ({
+      id: crypto.randomUUID(),
+      session: `sample-${crypto.randomUUID()}`,
+      profile: mode,
+      intent: "sample-lead",
+      version: project.version,
+      answers: {},
+      objectIds: (mode === "sale" ? properties : rentals).slice(0, 2).map((p) => p.id),
+      source: sample.source,
+      channel: "WhatsApp",
+      contactType: "phone",
+      contact: sample.contact,
+      name: sample.name,
+      city: sample.city,
+      attribution: {
+        source: sample.source,
+        sourceLabel: sample.sourceLabel,
+        capturedAt: now,
+        landingPage: "/#sale/results",
+        referrer: `${sample.source}.example (учебные данные)`,
+        utm: sample.utm,
+        clickIds: sample.clickIds,
+        clientIds: sample.clientIds,
+      },
+      technical: {
+        device: sample.device,
+        timezone: sample.timezone,
+        language: "ru-RU",
+        userAgent: "Учебные данные · Chrome",
+        screen: sample.screen,
+      },
+      requestedDate: "2026-11-03",
+      time: "11:30",
+      createdAt: now,
+      updatedAt: now,
+      stage: "new",
+      isSample: true,
+    }));
+    setStore((s) => ({ ...s, leads: [...samples, ...s.leads] }));
+  }
   function sample() {
     setStore((s) => ({
       ...s,
@@ -2030,7 +2169,7 @@ function Admin({ mode, store, setStore, onPreview, toast }) {
             ЛОКАЛЬНОЕ ДЕМО / {profiles[mode].label}
           </span>
           <h1>Контроль подбора</h1>
-          <p>Версия 2 · данные этого браузера · без реальных контактов</p>
+          <p>Версия 2 · контакты и аналитика хранятся только в этом браузере</p>
         </div>
         <div>
           <IconButton label="Выгрузить JSON" onClick={download}>
@@ -2078,6 +2217,7 @@ function Admin({ mode, store, setStore, onPreview, toast }) {
               <option value="google">Google</option>
               <option value="yandex">Яндекс</option>
               <option value="telegram">Telegram</option>
+              <option value="other">Другой источник</option>
             </select>
             <select
               aria-label="Устройство"
@@ -2194,14 +2334,25 @@ function Admin({ mode, store, setStore, onPreview, toast }) {
       )}
       {tab === "leads" && (
         <div className="lead-list">
+          <button className="outline-button" onClick={addSampleLeads}>
+            Добавить учебные заявки Google и Яндекс
+          </button>
           {!leads.length ? (
             <p>Тестовых заявок пока нет.</p>
           ) : (
             leads.map((l) => (
               <article className="lead-row" key={l.id}>
                 <div>
-                  <span className="eyebrow">#{l.id.slice(0, 8)} · ТЕСТ</span>
+                  <span className="eyebrow">
+                    #{l.id.slice(0, 8)} · {l.isSample ? "УЧЕБНЫЙ ПРИМЕР" : "ТЕСТ"}
+                  </span>
                   <h3>
+                    {l.name || "Имя не указано"}
+                  </h3>
+                  <p>
+                    {l.contactType === "telegram_username" ? "Telegram" : l.contactType === "max_url" ? "MAX" : "Телефон"}: {l.contact || "не указан"}
+                  </p>
+                  <p>
                     {l.objectIds
                       .map(
                         (id) =>
@@ -2210,13 +2361,42 @@ function Admin({ mode, store, setStore, onPreview, toast }) {
                           )?.name,
                       )
                       .join(", ")}
-                  </h3>
+                  </p>
                   <p>
-                    {l.source} · {l.channel}
+                    {l.attribution?.sourceLabel || l.source} · {l.channel}
                     {l.requestedDate &&
                       ` · желаемый день ${l.requestedDate} ${l.time || ""}`}
                   </p>
-                  <small>Имя и телефон не сохранены. Доставки не было.</small>
+                  <p>
+                    Город: {l.city || "не указан"} · создана {formatLeadTime(l.createdAt, l.technical?.timezone)}
+                    {l.technical?.timezone ? ` · ${l.technical.timezone}` : ""}
+                  </p>
+                  <details className="lead-attribution">
+                    <summary>Источник и рекламные данные</summary>
+                    <dl className="lead-detail-grid">
+                      <dt>Страница входа</dt><dd>{l.attribution?.landingPage || "не зафиксирована"}</dd>
+                      <dt>Реферер</dt><dd>{l.attribution?.referrer || "прямой вход / не передан"}</dd>
+                      {Object.entries(l.attribution?.utm || {}).map(([key, value]) => (
+                        <React.Fragment key={key}><dt>{key}</dt><dd>{value}</dd></React.Fragment>
+                      ))}
+                      {Object.entries(l.attribution?.clickIds || {}).map(([key, value]) => (
+                        <React.Fragment key={key}><dt>{key}</dt><dd>{value}</dd></React.Fragment>
+                      ))}
+                      {Object.entries(l.attribution?.clientIds || {}).map(([key, value]) => (
+                        <React.Fragment key={key}><dt>{key}</dt><dd>{value}</dd></React.Fragment>
+                      ))}
+                    </dl>
+                    <small>Пустые метки и ID не добавляются. ID в учебных примерах синтетические.</small>
+                  </details>
+                  <details className="lead-attribution">
+                    <summary>Техническая информация</summary>
+                    <dl className="lead-detail-grid">
+                      <dt>Устройство</dt><dd>{l.technical?.device || "неизвестно"}</dd>
+                      <dt>Язык</dt><dd>{l.technical?.language || "неизвестен"}</dd>
+                      <dt>Экран</dt><dd>{l.technical?.screen || "неизвестен"}</dd>
+                      <dt>Браузер</dt><dd>{l.technical?.userAgent || "не передан"}</dd>
+                    </dl>
+                  </details>
                   <p>
                     Номер:{" "}
                     {l.contactChecks?.phoneStatus === "valid"

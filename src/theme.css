@@ -1722,6 +1722,40 @@ select {
   font-size: 11px;
   color: var(--muted);
 }
+.lead-list > .outline-button {
+  margin: 18px 0 4px;
+}
+.lead-row > div {
+  min-width: 0;
+  flex: 1;
+}
+.lead-attribution {
+  margin-top: 12px;
+  max-width: 900px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.lead-attribution summary {
+  width: fit-content;
+  color: var(--gold);
+  cursor: pointer;
+  font-weight: 700;
+}
+.lead-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 12px 0;
+  font-size: 11px;
+}
+.lead-detail-grid dt {
+  color: var(--muted);
+}
+.lead-detail-grid dd {
+  margin: 0;
+  color: var(--paper);
+  overflow-wrap: anywhere;
+}
 .preview-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
