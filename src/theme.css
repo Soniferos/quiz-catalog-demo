@@ -778,7 +778,11 @@ input[type="time"],
   position: absolute;
   height: 100%;
   width: 100%;
-  background: radial-gradient(ellipse at 35% 20%, #9b9e8055, transparent 40%), linear-gradient(145deg, #526854, #17372d 65%, #10271f);
+  background-color: #17372d;
+  background-position: center;
+  background-size: cover;
+  filter: blur(4px) brightness(0.62);
+  transform: scale(1.08);
 }
 .preview-lock {
   position: absolute;

@@ -109,9 +109,6 @@ function boundedValue(value) {
 
 export function readAttribution() {
   const params = new URLSearchParams(location.search);
-  const city = ["utm_city", "city", "geo_city", "location_city"]
-    .map((key) => boundedValue(params.get(key) || ""))
-    .find(Boolean) || "";
   const utm = Object.fromEntries(
     utmKeys
       .map((key) => [key, boundedValue(params.get(key) || "")])
@@ -129,6 +126,14 @@ export function readAttribution() {
     referrer = "";
   }
   const rawSource = (utm.utm_source || "").toLowerCase();
+  const isYandex = /yandex|яндекс/.test(rawSource) || /yandex|ya\.ru/.test(referrer);
+  const explicitCity = ["utm_city", "city", "geo_city", "location_city"]
+    .map((key) => boundedValue(params.get(key) || ""))
+    .find(Boolean) || "";
+  const yandexTermCity = isYandex
+    ? utm.utm_term?.match(/^(?:---)?autotargeting\.(?:mobile|desktop|tablet)\.([^.]+)\.\d+(?:\.|$)/i)?.[1] || ""
+    : "";
+  const city = explicitCity || boundedValue(yandexTermCity);
   const source = /yandex|яндекс/.test(rawSource)
     ? "yandex"
     : /google/.test(rawSource)

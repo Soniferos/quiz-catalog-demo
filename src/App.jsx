@@ -749,7 +749,13 @@ export default function App() {
               <div className="locked-previews">
                 {matched.slice(0, 3).map((p) => (
                   <div className="locked-preview" key={p.id}>
-                    <div className="locked-preview-art" aria-hidden="true" />
+                    <div
+                      className="locked-preview-art"
+                      aria-hidden="true"
+                      style={{
+                        backgroundImage: `url("/images/teaser-blur/${p.image}")`,
+                      }}
+                    />
                     <LockKeyhole className="preview-lock" size={25} />
                     <div>
                       <strong>
