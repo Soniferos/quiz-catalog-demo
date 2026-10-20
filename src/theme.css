@@ -856,6 +856,15 @@ input[type="time"],
   font-size: 11px;
   margin-top: 22px;
 }
+.phone-hint {
+  display: block;
+  margin: 8px 4px 0;
+  color: #91a99a;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  text-transform: none;
+}
 .input-with-icon {
   margin-top: 10px;
   display: flex;

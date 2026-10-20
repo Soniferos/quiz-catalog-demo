@@ -1202,18 +1202,28 @@ function ContactForm({ kind, mode, onSubmit }) {
               }}
             />
           </div>
+          {contactType === "phone" && (
+            <span className="phone-hint">
+              Российский номер можно ввести с 8, 7 или +7. Для других стран укажите + и код страны.
+            </span>
+          )}
         </label>
         <label className="input-label">
-          {contactType === "phone" ? "НОМЕР С КОДОМ СТРАНЫ" : contactType === "telegram_username" ? "ЛОГИН TELEGRAM" : "ССЫЛКА НА ПРОФИЛЬ MAX"}
+          {contactType === "phone" ? "НОМЕР ТЕЛЕФОНА" : contactType === "telegram_username" ? "ЛОГИН TELEGRAM" : "ССЫЛКА НА ПРОФИЛЬ MAX"}
           <div className="input-with-icon">
             <MessageIcon />
             <input
               type={contactType === "phone" ? "tel" : contactType === "max_url" ? "url" : "text"}
               aria-label={contactType === "phone" ? "Номер телефона" : contactType === "telegram_username" ? "Логин Telegram" : "Ссылка на профиль MAX"}
               autoComplete="off"
-              placeholder={contactType === "phone" ? "+1 202 555 0123" : contactType === "telegram_username" ? "@username" : "https://max.ru/…"}
+              placeholder={contactType === "phone" ? "+7 999 123-45-67" : contactType === "telegram_username" ? "@username" : "https://max.ru/…"}
               maxLength={30}
               value={phone}
+              onBlur={() => {
+                if (contactType !== "phone") return;
+                const parsed = validatePhone(phone);
+                if (parsed.valid) setPhone(parsed.formatted);
+              }}
               onChange={(e) => {
                 setPhone(e.target.value);
                 setError("");

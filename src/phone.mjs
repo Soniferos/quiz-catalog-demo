@@ -20,14 +20,20 @@ export function validatePhone(value) {
   if (
     typeof value !== "string" ||
     value.length > 40 ||
-    !/^\+[0-9\s().-]+$/.test(value.trim())
+    !/^\+?[0-9\s().-]+$/.test(value.trim())
   )
     return invalid(
       "format",
-      "Укажите номер с + и кодом страны, без букв и добавочного номера.",
+      "Укажите номер телефона цифрами, без букв и добавочного номера.",
     );
   try {
-    const phone = parsePhoneNumberFromString(value.trim(), { extract: false });
+    const input = value.trim();
+    // A number without an international + is treated as Russian national input.
+    // libphonenumber-js converts 8…, 7… and the 10-digit local form to +7….
+    const phone = parsePhoneNumberFromString(input, {
+      ...(input.startsWith("+") ? {} : { defaultCountry: "RU" }),
+      extract: false,
+    });
     if (!phone?.isValid() || phone.ext)
       return invalid(
         "numbering_plan",
@@ -42,6 +48,7 @@ export function validatePhone(value) {
     return {
       valid: true,
       normalized: phone.number,
+      formatted: phone.formatInternational(),
       country: phone.country || null,
       type: phone.getType() || null,
     };
