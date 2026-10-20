@@ -1255,22 +1255,30 @@ function ContactForm({ kind, mode, onSubmit }) {
           <div className="request-schedule">
             <label>
               Желаемый день
-              <input
-                type="date"
-                aria-label="Желаемый день"
-                min={today()}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <span className="schedule-input-wrap">
+                <input
+                  className={date ? "" : "is-empty"}
+                  type="date"
+                  aria-label="Желаемый день"
+                  min={today()}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+                {!date && <span className="schedule-placeholder" aria-hidden="true">ДД.ММ.ГГГГ</span>}
+              </span>
             </label>
             <label>
               Время
-              <input
-                type="time"
-                aria-label="Желаемое время"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
+              <span className="schedule-input-wrap">
+                <input
+                  className={time ? "" : "is-empty"}
+                  type="time"
+                  aria-label="Желаемое время"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+                {!time && <span className="schedule-placeholder" aria-hidden="true">--:--</span>}
+              </span>
             </label>
           </div>
         )}
@@ -1997,22 +2005,30 @@ function RequestDialog({
           <div className="request-schedule">
             <label>
               Желаемый день
-              <input
-                type="date"
-                aria-label="Желаемый день"
-                min={today()}
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <span className="schedule-input-wrap">
+                <input
+                  className={date ? "" : "is-empty"}
+                  type="date"
+                  aria-label="Желаемый день"
+                  min={today()}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+                {!date && <span className="schedule-placeholder" aria-hidden="true">ДД.ММ.ГГГГ</span>}
+              </span>
             </label>
             <label>
               Время
-              <input
-                type="time"
-                aria-label="Желаемое время"
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
+              <span className="schedule-input-wrap">
+                <input
+                  className={time ? "" : "is-empty"}
+                  type="time"
+                  aria-label="Желаемое время"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                />
+                {!time && <span className="schedule-placeholder" aria-hidden="true">--:--</span>}
+              </span>
             </label>
           </div>
         )}
