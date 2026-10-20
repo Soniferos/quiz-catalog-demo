@@ -464,6 +464,7 @@ export default function App() {
           channel,
           ...(contactChecks ? { contactChecks } : {}),
           ...(visitor || {}),
+          city: attribution.city || "",
           attribution,
           technical: {
             device: dataset.device,
@@ -980,7 +981,11 @@ function Welcome({ mode, onMode, onStart, inventory, currency }) {
         <div className="teaser-track">
           {inventory.slice(0, 5).map((p) => (
             <div className="teaser-item" key={p.id}>
-              <div className="teaser-item-art" aria-hidden="true" />
+              <div
+                className="teaser-item-art"
+                aria-hidden="true"
+                style={{ backgroundImage: `url("/images/teaser-blur/${p.image}")` }}
+              />
               <LockKeyhole size={22} />
               <div>
                 <strong>{p.name}</strong>
@@ -1002,7 +1007,6 @@ function ContactForm({ kind, mode, onSubmit }) {
   const publicDemo = import.meta.env.MODE === "public-demo";
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [city, setCity] = useState("");
   const [channel, setChannel] = useState("WhatsApp");
   const [contactType, setContactType] = useState("phone");
   const [consent, setConsent] = useState(false);
@@ -1036,16 +1040,18 @@ function ContactForm({ kind, mode, onSubmit }) {
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
-    if (!name.trim()) return setError("Укажите тестовое имя.");
+    const cleanName = name.trim().replace(/\s+/g, " ");
+    if (!cleanName) return setError("Укажите имя.");
+    if (!/^[\p{Script=Latin}\p{Script=Cyrillic}]+(?:[\s.'’\-][\p{Script=Latin}\p{Script=Cyrillic}]+)*$/u.test(cleanName))
+      return setError("Имя должно содержать только русские или латинские буквы.");
     const phoneBased = contactType === "phone";
     const validation = phoneBased ? validatePhone(phone) : { valid: true, normalized: null };
     if (!validation.valid) return setError(validation.message);
     const destination = phone.trim();
     const visitor = {
-      name: name.trim(),
+      name: cleanName,
       contact: phoneBased ? validation.normalized : destination,
       contactType,
-      city: city.trim(),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
     };
     if (contactType === "telegram_username" && !/^@?[A-Za-z0-9_]{5,32}$/.test(destination))
@@ -1179,21 +1185,15 @@ function ContactForm({ kind, mode, onSubmit }) {
               placeholder="Ваше имя"
               maxLength={60}
               value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-        </label>
-        <label className="input-label">
-          ГОРОД
-          <div className="input-with-icon">
-            <MapPin />
-            <input
-              aria-label="Город"
-              autoComplete="address-level2"
-              placeholder="Например, Бангкок"
-              maxLength={80}
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => {
+                setName(
+                  e.target.value
+                    .normalize("NFKC")
+                    .replace(/[^\p{Script=Latin}\p{Script=Cyrillic}\s.'’\-]/gu, "")
+                    .replace(/\s{2,}/g, " "),
+                );
+                setError("");
+              }}
             />
           </div>
         </label>

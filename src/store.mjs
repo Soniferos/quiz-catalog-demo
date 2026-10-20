@@ -78,6 +78,7 @@ const utmKeys = [
   "utm_source_platform",
   "utm_creative_format",
   "utm_marketing_tactic",
+  "utm_city",
 ];
 const clickIdKeys = [
   "gclid",
@@ -108,6 +109,9 @@ function boundedValue(value) {
 
 export function readAttribution() {
   const params = new URLSearchParams(location.search);
+  const city = ["utm_city", "city", "geo_city", "location_city"]
+    .map((key) => boundedValue(params.get(key) || ""))
+    .find(Boolean) || "";
   const utm = Object.fromEntries(
     utmKeys
       .map((key) => [key, boundedValue(params.get(key) || "")])
@@ -163,6 +167,7 @@ export function readAttribution() {
     capturedAt: Date.now(),
     landingPage: `${location.pathname}${location.hash}`,
     referrer,
+    city,
     utm,
     clickIds,
     clientIds,
